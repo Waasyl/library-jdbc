@@ -137,6 +137,7 @@ public class JdbcDataTableModel extends CrudDataTableModel {
 		Connection connection = null;
 		try {
 			connection = DriverManager.getConnection(DB_URL,DB_USER,DB_PASSWORD);
+			connection.setAutoCommit(false);
 			PreparedStatement statement = connection.prepareStatement("insert into author "
 					+ "(first_name,last_name) VALUES (?,?)", Statement.RETURN_GENERATED_KEYS);
 			statement.setString(1, book.getAuthorFirstName());
@@ -154,9 +155,15 @@ public class JdbcDataTableModel extends CrudDataTableModel {
 			statement.setInt(2,authorId);
 			statement.executeUpdate();
 			statement.close();
+			connection.commit();
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			try {
+				connection.rollback();
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
 		}
 		finally{
 			try {
@@ -172,12 +179,74 @@ public class JdbcDataTableModel extends CrudDataTableModel {
 	@Override
 	public void update(Book book) {
 		//TODO modyfikacja książki
+		Connection connection = null;
+		try {
+			connection = DriverManager.getConnection(DB_URL,DB_USER,DB_PASSWORD);
+			connection.setAutoCommit(false);
+			PreparedStatement statement = connection.prepareStatement("UPDATE author a SET a.first_name = ?, a.last_name = ? WHERE a.id = " +
+					"(SELECT b.author_id" +
+					" FROM book b WHERE b.id = ?)");
+			statement.setString(1, book.getAuthorFirstName());
+			statement.setString(2, book.getAuthorLastName());
+			statement.setInt(3, book.getId());
+			statement.executeUpdate();
+			statement = connection.prepareStatement("UPDATE book SET title = ? WHERE id = ?");
+			statement.setString(1,book.getTitle());
+			statement.setInt(2,book.getId());
+			statement.executeUpdate();
+			connection.commit();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			try {
+				connection.rollback();
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
+		}finally{
+			try {
+				connection.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
 		refresh();
 	}
 
 	@Override
 	public void delete(Book book) {
 		//TODO usunięcie książki
+		Connection connection = null;
+		try {
+			connection = DriverManager.getConnection(DB_URL, DB_USER,DB_PASSWORD);
+			connection.setAutoCommit(false);
+			PreparedStatement statement = connection.prepareStatement("DELETE FROM book_category WHERE book_id = ?");
+			statement.setInt(1, book.getId());
+			statement.executeUpdate();
+
+			statement = connection.prepareStatement("DELETE FROM book WHERE id = ?");
+			statement.setInt(1, book.getId());
+			statement.executeUpdate();
+
+
+			connection.commit();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			try {
+				connection.rollback();
+			} catch (SQLException e1) {
+				e1.printStackTrace();
+			}
+		}finally{
+			try {
+				if(connection != null){
+					connection.close();
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
 		refresh();
 	}
 
